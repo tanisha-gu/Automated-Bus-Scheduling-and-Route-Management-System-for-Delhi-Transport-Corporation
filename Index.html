@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DTC — Automated Bus Scheduling & Route Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="/static/css/main.css" />
+</head>
+<body>
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo-block">
+      <div class="logo-icon">🚌</div>
+      <div>
+        <div class="logo-title">DTC</div>
+        <div class="logo-sub">Operations Hub</div>
+      </div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
+      <span class="nav-icon">⬡</span><span>Dashboard</span>
+    </a>
+    <a class="nav-item" data-page="linked" onclick="showPage('linked')">
+      <span class="nav-icon">⬡</span><span>Linked Duties</span>
+    </a>
+    <a class="nav-item" data-page="unlinked" onclick="showPage('unlinked')">
+      <span class="nav-icon">⬡</span><span>Unlinked Duties</span>
+    </a>
+    <a class="nav-item" data-page="routes" onclick="showPage('routes')">
+      <span class="nav-icon">⬡</span><span>Route Manager</span>
+    </a>
+    <a class="nav-item" data-page="buses" onclick="showPage('buses')">
+      <span class="nav-icon">⬡</span><span>Fleet</span>
+    </a>
+    <a class="nav-item" data-page="crew" onclick="showPage('crew')">
+      <span class="nav-icon">⬡</span><span>Crew</span>
+    </a>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="system-status">
+      <span class="status-dot"></span>
+      <span>System Online</span>
+    </div>
+    <div class="date-display" id="sidebarDate"></div>
+  </div>
+</aside>
+
+<!-- MAIN CONTENT -->
+<main class="main-content">
+
+  <!-- ═══════════════ DASHBOARD ═══════════════ -->
+  <section class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Operations Dashboard</h1>
+        <p class="page-subtitle">Delhi Transport Corporation — Real-time overview</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="refreshDashboard()">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="stats-grid" id="statsGrid">
+      <!-- Filled by JS -->
+    </div>
+    <div class="dashboard-grid">
+      <div class="card">
+        <div class="card-header"><h3>Fleet Status</h3></div>
+        <div class="chart-container" id="fleetChart"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3>Crew Status</h3></div>
+        <div class="chart-container" id="crewChart"></div>
+      </div>
+      <div class="card span-2">
+        <div class="card-header"><h3>Active Routes</h3><span class="badge" id="routeBadge">—</span></div>
+        <div id="routeSummaryList" class="route-summary-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ LINKED DUTIES ═══════════════ -->
+  <section class="page" id="page-linked">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Linked Duty Scheduling</h1>
+        <p class="page-subtitle">Crew assigned to one bus for the entire shift</p>
+      </div>
+    </div>
+    <div class="card scheduler-form-card">
+      <div class="card-header"><h3>Generate Linked Schedule</h3></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="linkedDate" class="form-input" />
+        </div>
+        <div class="form-group">
+          <label>Shift</label>
+          <select id="linkedShift" class="form-input">
+            <option>Morning</option><option>Afternoon</option><option>Night</option><option>Split</option>
+          </select>
+        </div>
+        <div class="form-group align-end">
+          <button class="btn btn-primary btn-lg" onclick="generateLinkedSchedule()">
+            ⚡ Generate Schedule
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="linkedResults" class="hidden">
+      <div class="summary-bar" id="linkedSummaryBar"></div>
+      <div class="card">
+        <div class="card-header">
+          <h3>Duty Assignments</h3>
+          <input type="text" class="search-input" placeholder="Search crew or bus…" oninput="filterTable('linkedTable', this.value)" />
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="linkedTable">
+            <thead>
+              <tr><th>Duty ID</th><th>Bus</th><th>Crew</th><th>Route</th><th>Shift</th><th>Start</th><th>End</th><th>Trips</th><th>Distance</th><th>Status</th></tr>
+            </thead>
+            <tbody id="linkedTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="linkedEmpty" class="empty-state">
+      <div class="empty-icon">📋</div>
+      <p>Generate a schedule to see linked duty assignments</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ UNLINKED DUTIES ═══════════════ -->
+  <section class="page" id="page-unlinked">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Unlinked Duty Scheduling</h1>
+        <p class="page-subtitle">Crew handover system with automated rest period management</p>
+      </div>
+    </div>
+    <div class="card scheduler-form-card">
+      <div class="card-header"><h3>Generate Unlinked Schedule</h3></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="unlinkedDate" class="form-input" />
+        </div>
+        <div class="form-group align-end">
+          <button class="btn btn-primary btn-lg" onclick="generateUnlinkedSchedule()">
+            ⚡ Generate Schedule
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="unlinkedResults" class="hidden">
+      <div class="summary-bar" id="unlinkedSummaryBar"></div>
+      <div class="card" id="unlinkedCards"></div>
+    </div>
+    <div id="unlinkedEmpty" class="empty-state">
+      <div class="empty-icon">🔄</div>
+      <p>Generate a schedule to see unlinked duty assignments with handovers</p>
+    </div>
+  </section>
+
+  <!-- ═══════════════ ROUTE MANAGER ═══════════════ -->
+  <section class="page" id="page-routes">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Route Management</h1>
+        <p class="page-subtitle">GIS-powered route planning with overlap detection</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-primary" onclick="showAddRouteModal()">＋ Add New Route</button>
+      </div>
+    </div>
+    <div class="routes-layout">
+      <div class="routes-sidebar-panel">
+        <div class="card">
+          <div class="card-header"><h3>Existing Routes</h3><span class="badge" id="routeCountBadge">0</span></div>
+          <div id="routesList" class="routes-list"></div>
+        </div>
+      </div>
+      <div class="routes-map-panel">
+        <div class="card map-card">
+          <div class="card-header"><h3>Network Map — Delhi</h3>
+            <div class="map-legend" id="mapLegend"></div>
+          </div>
+          <div id="routeMap" class="map-container"></div>
+        </div>
+        <div class="card" id="overlapPanel" style="display:none;">
+          <div class="card-header"><h3>⚠️ Overlap Analysis</h3></div>
+          <div id="overlapContent"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ FLEET ═══════════════ -->
+  <section class="page" id="page-buses">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Fleet Management</h1>
+        <p class="page-subtitle">All buses across DTC depots</p>
+      </div>
+      <div class="header-actions">
+        <select class="form-input" id="busStatusFilter" onchange="filterBuses()">
+          <option value="">All Status</option>
+          <option>Available</option><option>In Service</option><option>Maintenance</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <h3>Bus Fleet</h3>
+        <input type="text" class="search-input" placeholder="Search bus ID…" oninput="filterTable('busTable', this.value)" />
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="busTable">
+          <thead>
+            <tr><th>Bus ID</th><th>Type</th><th>Depot</th><th>Capacity</th><th>Fuel</th><th>Status</th></tr>
+          </thead>
+          <tbody id="busTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ CREW ═══════════════ -->
+  <section class="page" id="page-crew">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Crew Management</h1>
+        <p class="page-subtitle">Drivers and conductors across all depots</p>
+      </div>
+      <div class="header-actions">
+        <select class="form-input" id="crewRoleFilter" onchange="filterCrew()">
+          <option value="">All Roles</option>
+          <option>Driver</option><option>Conductor</option>
+        </select>
+        <select class="form-input" id="crewStatusFilter" onchange="filterCrew()">
+          <option value="">All Status</option>
+          <option>Available</option><option>On Duty</option><option>On Rest</option>
+        </select>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <h3>Crew Roster</h3>
+        <input type="text" class="search-input" placeholder="Search name or ID…" oninput="filterTable('crewTable', this.value)" />
+      </div>
+      <div class="table-wrapper">
+        <table class="data-table" id="crewTable">
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Role</th><th>Depot</th><th>Shift</th><th>Experience</th><th>License</th><th>Status</th></tr>
+          </thead>
+          <tbody id="crewTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ADD ROUTE MODAL -->
+<div class="modal-overlay hidden" id="addRouteModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Add New Route</h3>
+      <button class="modal-close" onclick="closeAddRouteModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Route Name</label>
+        <input type="text" id="newRouteName" class="form-input" placeholder="e.g. Lajpat Nagar → Kashmere Gate" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Distance (km)</label>
+          <input type="number" id="newRouteDist" class="form-input" value="20" />
+        </div>
+        <div class="form-group">
+          <label>Frequency (min)</label>
+          <input type="number" id="newRouteFreq" class="form-input" value="15" />
+        </div>
+        <div class="form-group">
+          <label>Color</label>
+          <input type="color" id="newRouteColor" class="form-input color-input" value="#E74C3C" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Stops (one per line)</label>
+        <textarea id="newRouteStops" class="form-input form-textarea" rows="6"
+          placeholder="Lajpat Nagar&#10;INA&#10;Dhaula Kuan&#10;Connaught Place&#10;Minto Road&#10;Kashmere Gate"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAddRouteModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitNewRoute()">Check Overlaps & Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast hidden" id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/js/main.js"></script>
+</body>
+</html>
