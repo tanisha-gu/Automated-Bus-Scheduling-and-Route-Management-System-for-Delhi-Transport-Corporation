@@ -485,6 +485,7 @@ overlap_pct     = |common| / |candidate_stops| × 100
 ---
 
 ## Configuration
+----------------------------------------------------------------------
 
 All configuration is currently inline in `app.py` and `scheduler.py`. Key values to adjust:
 
