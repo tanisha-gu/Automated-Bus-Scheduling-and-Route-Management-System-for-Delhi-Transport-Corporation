@@ -1,6 +1,7 @@
 # DTC Automated Bus Scheduling & Route Management System
 
 **Transport Corporation — Operations Hub**
+---
 
 A full-stack web application for automated bus scheduling (linked & unlinked duties) and GIS-based route management. Built with Python (Flask) backend and a custom HTML/CSS/JS frontend.
 
